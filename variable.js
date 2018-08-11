@@ -17,7 +17,11 @@ return false;
 function updatelabel(){
     var addend1 = getNumber1();
     var addend2 = getNumber2();
-    var sum = addend1 + addend2;
+    if (checkRate(addend1)||checkRate(addend2)){
+        var sum = addend1 + addend2;
+    }else{
+        var sum = parseInt(addend1) + parseInt(addend2);
+    }
     label.textContent = addend1 + '+' + addend2 + '=' + sum;
 }
 
@@ -27,6 +31,11 @@ function getNumber1(){
 
 function getNumber2(){
     return inputs[1].value;
+}
+
+function checkRate(input){
+    var re = /[a-z]/;
+    return re.test(input);
 }
 
 var inputs = document.querySelectorAll('input');
