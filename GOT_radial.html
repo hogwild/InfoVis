@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <style>
+        body {
+            font: 10px sans-serif;
+        }
+
+        .link {
+            fill: none;
+            stroke: #000;
+        }
+
+        .border {
+            fill: none;
+            shape-rendering: crispEdges;
+            stroke: #aaa;
+        }
+
+        .node {
+            stroke: #fff;
+        }
+    </style>
+
+
+    <script src="generateTree.js"></script>
+    <script src="https://d3js.org/d3.v3.min.js"></script>
+</head>
+
+<body>
+    <script>
+        //console.log(tree)
+        var houses = [
+            { "name": "Stark", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-stark-1024x1024@2x.jpg" },
+            { "name": "Targaryen", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-targaryen-1024x1024@2x.jpg" },
+            { "name": "Baratheon", "image": "http://assets.viewers-guide.hbo.com/smalls2-houses-rgb-sigil-avatar-house-baratheon-renly-1024x1024@2x.jpg" },
+            { "name": "Lannister", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-lannister-1024x1024@2x.jpg" },
+            { "name": "Tyrell", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-tyrell-1024x1024@2x.jpg" },
+            { "name": "Martell", "image": "http://assets.viewers-guide.hbo.com/small533c36c512913@2x.jpg" },
+            { "name": "Frey", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-frey-1024x1024@2x.jpg" },
+            { "name": "Tully", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-tully-1024x1024@2x.jpg" },
+        ];
+        var diameter = 900;
+        var margin = { top: 50, right: 50, bottom: 50, left: 50 },
+            width = diameter,
+            height = diameter;
+
+        //console.log(tree)
+        d3.json("characters.json", function (error, rawData) {
+            if (error) throw error;
+            var characters = rawData["characters"];
+            var root = generateTree(characters);
+            //console.log(root);
+            var treeHouse = houses.map(function (d) {
+                return { "name": d.name, "children": root.filter(function (c) { return c["house"] === d.name; }), "image": d.image }
+            });
+            //console.log(treeHouse);
+            var treeData = {
+                "name": "GOT", "children": treeHouse,
+                "image": "https://imagesvc.timeincapp.com/v3/fan/image?url=https%3A%2F%2Fwinteriscoming.net%2Ffiles%2F2017%2F03%2FGame-of-Thrones-logo.jpg&c=sc&w=850&h=560"
+            };
+            // Compute the new tree layout.
+            var tree = d3.layout.tree()
+                .size([360, 400])
+                .separation(function (a, b) {
+                    return (a.parent == b.parent ? 1 : 2) / a.depth;
+                });
+
+            var nodes = tree.nodes(treeData),
+                links = tree.links(nodes);
+
+            // Create the path generator; 
+            var diagonal = d3.svg.diagonal.radial()
+                .projection(function (d) {
+                    return [d.y, d.x / 180 * Math.PI];
+                });
+
+            // Create the svg, moving the origin to the center of the canvas!
+            var svg = d3.select("body").append("svg")
+                .attr("width", width + margin.left + margin.right)
+                .attr("height", height + margin.top + margin.bottom)
+                .append("g")
+                .attr("transform", "translate(" + diameter / 2 + "," + diameter / 2 + ")");
+
+            // Create the links
+            var link = svg.selectAll(".link")
+                .data(links)
+                .enter();
+            link.append("path")
+                .attr("d", diagonal)
+                .style("fill", "none")
+                .style("stroke", "green")
+
+            // Plot nodes
+            var node = svg.selectAll(".node")
+                .data(nodes)
+                .enter()
+                .append("g")
+                .attr("class", "node")
+                .attr("transform", function (d) {
+                    return "rotate(" + (d.x - 90) + ")translate(" + d.y + ")";
+                });
+            // Create defs
+            var defs = node.append("defs")
+                .append("pattern")
+                .attr("id", function (d, i) { return "character-images" + i; })
+                .attr("patternUnits", "objectBoundingBox")//"userSpaceOnUse")
+                .attr("patternTransform", function (d) { return "rotate(" + (90 - d.x) + ")" })
+                .attr("width", 1)
+                .attr("height", 1)
+                .append("image")
+                .attr("id", function (d, i) { return "image" + i; })
+                .attr("xlink:href", function (d) { return d.image; })
+                .attr("width", 20)
+                .attr("height", 20)
+                .attr("x", 0)
+                .attr("y", 0);
+
+            node.append("circle")
+                .attr("r", 10)
+                .attr("fill", function (d, i) {
+                    if (d.image) {
+                        return "url(#character-images" + i + ")";
+                    } else {
+                        return "steelblue";
+                    }
+                })
+                .style("stroke", "red")
+                .on("mouseover", function (d, i) {
+                    // select element in current context
+                    d3.select("#image" + i)
+                        .attr("width", 80)
+                        .attr("height", 80)
+
+                    d3.select(this)
+                        .transition()
+                        .duration(500)
+                        .attr("r", 40);
+                })
+                .on('mouseout', function (d, i) {
+                    d3.select("#image" + i)
+                        .attr("width", 20)
+                        .attr("height", 20)
+
+                    d3.select(this)
+                        .transition()
+                        .duration(100)
+                        .attr('r', 10);
+                });
+
+            ////Adding extra information
+            //     node.append("text")
+            //         .attr("dx", function (d) { return d.x < 180 ? 20 : -20; })
+            //         .attr("dy", ".31em")
+            //         .attr("text-anchor", function (d) { return d.x < 180 ? "start" : "end"; })
+            //         .attr("transform", function (d) { return d.x < 180 ? null : "rotate(180)"; })
+            //         .style("stroke", "none")
+            //         .style("fill", "red")
+            //         .text(function (d) { return d.name; });
+        });
+    </script>
+</body>
+
+</html>
