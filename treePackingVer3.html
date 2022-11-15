@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <style>
+        .node {
+            cursor: pointer;
+        }
+
+        .node:hover {
+            stroke: #000;
+            stroke-width: 1.5px;
+        }
+
+        .node--root {
+            stroke: #777;
+            stroke-width: 2px;
+        }
+
+        .node--leaf {
+            fill: white;
+        }
+
+        .label {
+            font: 11px "Open Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+            text-anchor: middle;
+            text-shadow: 0 1px 0 #fff, 1px 0 0 #fff, -1px 0 0 #fff, 0 -1px 0 #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <script src="http://d3js.org/d3.v3.min.js"></script>
+    <script src="generateTree.js"></script>
+    <script>
+
+        var margin = 10,
+            outerDiameter = 600,
+            innerDiameter = outerDiameter - margin - margin;
+
+        var x = d3.scale.linear()
+            .range([0, innerDiameter]);
+
+        var y = d3.scale.linear()
+            .range([0, innerDiameter]);
+
+        var color = d3.scale.category10();
+
+        var opacityScale = d3.scale.linear()
+            .range([0, 1])
+
+        var pack = d3.layout.pack()
+            .padding(2)
+            .size([innerDiameter, innerDiameter])
+            .value(function (d) { return (1 / (d.depth + 1)); })
+
+        var svg = d3.select("body").append("svg")
+            .attr("width", outerDiameter)
+            .attr("height", outerDiameter)
+            .append("g")
+            .attr("transform", "translate(" + margin + "," + margin + ")");
+
+        var houses = [
+            { "name": "Stark", "color": "grey", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-stark-1024x1024@2x.jpg" },
+            { "name": "Targaryen", "color": "red", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-targaryen-1024x1024@2x.jpg" },
+            { "name": "Baratheon", "color": "green", "image": "http://assets.viewers-guide.hbo.com/smalls2-houses-rgb-sigil-avatar-house-baratheon-renly-1024x1024@2x.jpg" },
+            { "name": "Lannister", "color": "orange", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-lannister-1024x1024@2x.jpg" },
+            { "name": "Tyrell", "color": "purple", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-tyrell-1024x1024@2x.jpg" },
+            { "name": "Martell", "color": "steelblue", "image": "http://assets.viewers-guide.hbo.com/small533c36c512913@2x.jpg" },
+            { "name": "Frey", "color": "darkred", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-frey-1024x1024@2x.jpg" },
+            { "name": "Tully", "color": "yellow", "image": "http://assets.viewers-guide.hbo.com/smalls1-houses-rgb-sigil-avatar-house-tully-1024x1024@2x.jpg" },
+        ];
+
+        d3.json("characters.json", function (error, rawData) {
+            var characters = rawData["characters"];
+            var root = generateTree(characters);
+            //console.log(root);
+            var treeHouse = houses.map(function (d) {
+                return {
+                    "name": d.name,
+                    "house": d.name,
+                    "children": root.filter(function (c) {
+                        return c["house"] === d.name;
+                    }),
+                    "image": d.image
+                }
+            });
+            //console.log(treeHouse);
+            var treeData = {
+                "name": "GOT",
+                "house": "GOT",
+                "children": treeHouse,
+                "image": "https://imagesvc.timeincapp.com/v3/fan/image?url=https%3A%2F%2Fwinteriscoming.net%2Ffiles%2F2017%2F03%2FGame-of-Thrones-logo.jpg&c=sc&w=850&h=560"
+            };
+            // Compute the new tree layout.
+            nodes = pack.nodes(treeData);
+
+            console.log(nodes)
+            opacityScale.domain([0, d3.max(nodes, function (d) {
+                return d.depth;
+            })]);
+
+            var node = svg.append("g").selectAll("circle")
+                .data(nodes)
+                .enter()
+                .append("g")
+                .attr("class", "node");
+
+            var defs = node.append("defs")
+                .append("pattern")
+                .attr("id", function (d, i) { return "character-images" + i; })
+                .attr("patternUnits", "objectBoundingBox")
+                //.attr("patternTransform", function (d) { return "rotate(" + (90 - d.x) + ")" })
+                .attr("width", 1)
+                .attr("height", 1)
+                .append("image")
+                .attr("id", function (d, i) { return "image" + i; })
+                .attr("xlink:href", function (d) { return d.image; })
+                .attr("width", function (d) { return 2 * d.r })
+                .attr("height", function (d) { return 2 * d.r })
+                .attr("x", 0)
+                .attr("y", 0);
+
+            var circle = node.append("circle")
+                .attr("class", function (d, i) {
+                    //console.log(("c" + (d.x + d.y)).replace(/\./g, ""));
+                    return ("c" + (d.x + d.y)).replace(/\./g, "");
+                })
+                .attr("transform", function (d) {
+                    return "translate(" + d.x + "," + d.y + ")";
+                })
+                .attr("r", function (d) { return d.r; })
+                .attr("stroke", "red")
+                .style("fill", obtainColor)
+                .style("opacity", Opacity)
+                .on("click", handleMouseOver)
+                .on("mouseout", handleMouseOut);
+
+            function obtainColor(d, i) {
+                var houseColor = houses.filter(function (h) {
+                    if (typeof (d.house) === "object") {
+                        return h.name === d.house[0];
+                    }
+                    return h.name === d.house;
+                });
+                if (houseColor[0]) {
+                    return houseColor[0].color;
+                } else {
+                    return "url(#character-images" + i + ")";
+                };
+            };
+
+            function Opacity(d) {
+                if (d.depth === 0) {
+                    return 0.3;
+                }
+                return opacityScale(d.depth);
+            };
+
+            function changeChildrenOpacity(children, isRemove) {
+                if (children) {
+                    if (isRemove) {
+                        // console.log(children)
+                        children.forEach(function (c) {
+                            d3.selectAll("."+("c" + (c.x + c.y)).replace(/\./g, ""))
+                            .style("opacity", 0); 
+                            if (c.children) {
+                                changeChildrenOpacity(c.children, isRemove);
+                            }
+                            return null;
+                        })
+                    } else {
+                        children.forEach(function (c) {
+                            d3.selectAll("."+("c"+(c.x + c.y)).replace(/\./g, ""))
+                            .style("opacity", Opacity);
+                            if (c.children) {
+                                changeChildrenOpacity(c.children, isRemove);
+                            }
+                            return null;
+                        })
+                    }
+                }
+            };
+
+            function handleMouseOver(d, i) {
+                d3.select(this)
+                    .style("opacity", 1)
+                    .style("fill", "url(#character-images" + i + ")");
+                changeChildrenOpacity(d.children, true);
+            };
+
+            function handleMouseOut(d, i) {
+                d3.select(this)
+                    .style("fill", obtainColor)
+                    .style("opacity", Opacity);
+                changeChildrenOpacity(d.children, false);
+            };
+
+            // svg.append("g").selectAll("text")
+            //     .data(nodes)
+            //     .enter().append("text")
+            //     .attr("class", "label")
+            //     .attr("transform", function (d) { return "translate(" + (d.x) + "," + (d.y) + ")"; })
+            //     .style("fill-opacity", 0.4)
+            //     //.style("display", null)
+            //     .text(function (d) {
+            //         var houseName = houses.filter(function (h) {
+            //             return h.name === d.name;
+            //         })
+            //         if (houseName[0]) {
+            //             return d.name
+            //         }
+            //     });
+        });
+
+    </script>
+</body>
+
+</html>
